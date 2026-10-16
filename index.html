@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DETEKTIF PANGKALAN DATA: Misi Selamatkan Rekod Kelab Sekolah</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            overflow: hidden;
+        }
+
+        .pixel-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 3px;
+        }
+
+        /* D-Pad Buttons Styling */
+        .dpad-btn {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 2px solid #3b82f6;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .dpad-btn:active {
+            background: #3b82f6;
+            transform: scale(0.95);
+        }
+
+        /* Dialogue Box Glow */
+        .game-box {
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(8px);
+            border: 2px solid #3b82f6;
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Pulsing interaction prompt */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .pulse-prompt {
+            animation: pulse-ring 1.5s infinite ease-in-out;
+        }
+
+        /* CRT Screen Scanline effect for terminal popups */
+        .crt-overlay::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 2;
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between items-center bg-slate-950 text-slate-100 relative">
+
+    <header class="w-full max-w-5xl bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-2 flex justify-between items-center z-20 shadow-md">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 text-white p-2 rounded-lg text-lg shadow-md">
+                <i class="fa-solid fa-user-ninja"></i>
+            </div>
+            <div>
+                <h1 class="text-xs font-bold text-blue-400 tracking-wider pixel-font">DETEKTIF DATA</h1>
+                <p class="text-xs text-slate-400 font-semibold" id="current-location-text">Kawasan: Bilik Rekod Sekolah</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs font-medium">
+            <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-star text-amber-400"></i>
+                <span>Skor: <strong id="score-display" class="text-amber-400 text-sm">0</strong></span>
+            </div>
+            <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-blue-400"></i>
+                <span>Misi: <strong id="mission-progress-text" class="text-blue-300">1 / 3</strong></span>
+            </div>
+            <button id="btn-sound" onclick="toggleAudio()" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg border border-slate-700 text-slate-300">
+                <i class="fa-solid fa-volume-high" id="sound-icon"></i>
+            </button>
+            <button onclick="showHelpModal()" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg border border-slate-700 text-slate-300">
+                <i class="fa-solid fa-circle-question"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="relative w-full flex-1 max-w-5xl flex items-center justify-center p-2 overflow-hidden">
+        <div id="game-container" class="relative w-full h-full max-h-[640px] aspect-[4/3] bg-slate-900 rounded-xl overflow-hidden border-2 border-slate-800 shadow-2xl flex items-center justify-center">
+            
+            <!-- Canvas Canvas Element -->
+            <canvas id="gameCanvas" class="w-full h-full block bg-slate-950"></canvas>
+
+            <!-- Interaction Prompt Indicator -->
+            <div id="interaction-prompt" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white text-xs md:text-sm font-bold px-4 py-2 rounded-full border border-blue-400 shadow-lg pulse-prompt flex items-center gap-2 z-10 pointer-events-none">
+                <span class="bg-blue-800 px-2 py-0.5 rounded text-[10px] uppercase font-mono">E</span>
+                <span id="interaction-text">Tekan [E] atau [INTERAKSI]</span>
+            </div>
+
+            <!-- Dialogue & NPC Popup Modal Overlay -->
+            <div id="dialogue-box" class="hidden absolute bottom-4 left-4 right-4 game-box rounded-xl p-4 md:p-5 z-30 transition-all transform duration-200">
+                <div class="flex items-start gap-4">
+                    <div id="npc-avatar" class="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-blue-900/80 border-2 border-blue-400 flex items-center justify-center text-2xl flex-shrink-0 text-white">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 id="dialogue-speaker" class="font-bold text-blue-400 text-sm md:text-base">Cikgu Azman</h3>
+                            <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">DIALOG</span>
+                        </div>
+                        <p id="dialogue-text" class="text-xs md:text-sm text-slate-200 leading-relaxed min-h-[48px]"></p>
+                    </div>
+                </div>
+                <div class="mt-3 flex justify-end gap-2" id="dialogue-actions">
+                    <button id="btn-dialogue-next" onclick="advanceDialogue()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2 rounded-lg transition border border-blue-400 flex items-center gap-2">
+                        <span>Seterusnya</span> <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="puzzle-modal" class="hidden absolute inset-0 bg-slate-950/95 z-40 p-4 md:p-6 flex flex-col justify-between crt-overlay overflow-y-auto">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-emerald-500/20 border border-emerald-500/40 rounded-lg text-emerald-400">
+                            <i class="fa-solid fa-terminal text-lg"></i>
+                        </div>
+                        <div>
+                            <h2 id="puzzle-title" class="font-bold text-emerald-400 text-sm md:text-base tracking-wide">TERMINAL PANGKALAN DATA</h2>
+                            <p id="puzzle-subtitle" class="text-xs text-slate-400">Misi Siasatan Pangkalan Data Sekolah</p>
+                        </div>
+                    </div>
+                    <button onclick="closePuzzleModal()" class="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="my-4 flex-1 flex flex-col justify-center max-w-3xl mx-auto w-full">
+                    <!-- Dynamic Interactive Puzzle Content -->
+                    <div id="puzzle-content" class="bg-slate-900 border border-slate-800 rounded-xl p-4 md:p-6 shadow-inner">
+                        <!-- Dynamic Puzzle UI renders here -->
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-800 pt-3 flex justify-between items-center text-xs">
+                    <span class="text-slate-500"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> Baca soalan dengan teliti sebelum menghantar jawapan.</span>
+                    <button id="puzzle-submit-btn" onclick="submitPuzzleAnswer()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-lg border border-emerald-400 shadow-lg transition flex items-center gap-2">
+                        <i class="fa-solid fa-check"></i> <span>Sahkan Jawapan</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Start Game Splash Overlay -->
+            <div id="start-screen" class="absolute inset-0 bg-slate-950/95 z-50 flex flex-col items-center justify-center p-6 text-center">
+                <div class="w-16 h-16 bg-blue-600/20 border-2 border-blue-500 rounded-2xl flex items-center justify-center text-blue-400 text-3xl mb-4 shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <h1 class="text-xl md:text-2xl font-extrabold text-white mb-1 tracking-wider pixel-font text-blue-400">DETEKTIF PANGKALAN DATA</h1>
+                <h2 class="text-sm md:text-base text-slate-300 font-semibold mb-4">Misi Selamatkan Rekod Kelab Sekolah</h2>
+                <div class="max-w-md bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-300 mb-6 text-left space-y-2">
+                    <p class="text-blue-300 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> AMARAN SISTEM:</p>
+                    <p>Pangkalan data kelab sekolah telah rosak! Kunci pangkalan data tidak konsisten dan hubungan antara jadual terputus.</p>
+                    <p>Sertai Cikgu Azman untuk menyelesaikan 3 misi utama dan memulihkan rekod pangkalan data sekolah!</p>
+                </div>
+                <button onclick="startGame()" class="bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm px-8 py-3.5 rounded-xl border-2 border-blue-400 shadow-xl shadow-blue-600/30 transition transform hover:scale-105 active:scale-95 flex items-center gap-3">
+                    <i class="fa-solid fa-play"></i> <span>MULA SIASATAN</span>
+                </button>
+            </div>
+
+            <!-- Victory Screen Overlay -->
+            <div id="victory-screen" class="hidden absolute inset-0 bg-slate-950/98 z-50 flex flex-col items-center justify-center p-6 text-center">
+                <div class="w-20 h-20 bg-amber-500/20 border-2 border-amber-400 rounded-full flex items-center justify-center text-amber-400 text-4xl mb-4 shadow-lg shadow-amber-500/30 animate-bounce">
+                    <i class="fa-solid fa-award"></i>
+                </div>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-amber-400 mb-2 pixel-font">MISI BERJAYA!</h1>
+                <p class="text-base text-slate-200 font-medium max-w-lg mb-6">
+                    Tahniah, Detektif! Anda telah berjaya memulihkan seluruh Pangkalan Data Kelab Sekolah!
+                </p>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md mb-6 space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <span class="text-xs text-slate-400">Lencana Diterima:</span>
+                        <span class="text-sm font-bold text-emerald-400"><i class="fa-solid fa-shield-halved mr-1"></i> Detektif Data Pakar</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <span class="text-xs text-slate-400">Jumlah Skor Akhir:</span>
+                        <span id="final-score" class="text-lg font-extrabold text-amber-400">100 / 100</span>
+                    </div>
+                    <div class="text-left">
+                        <span class="text-xs text-slate-400 block mb-1">Kemahiran Dikuasai (SK 2.2):</span>
+                        <div class="flex flex-wrap gap-1.5">
+                            <span class="bg-blue-950 text-blue-300 border border-blue-800 text-[10px] px-2 py-0.5 rounded">Kunci Utama & Asing</span>
+                            <span class="bg-blue-950 text-blue-300 border border-blue-800 text-[10px] px-2 py-0.5 rounded">Hubungan ERD (1:1, 1:M, M:N)</span>
+                            <span class="bg-blue-950 text-blue-300 border border-blue-800 text-[10px] px-2 py-0.5 rounded">Penormalan (1NF, 2NF, 3NF)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="restartGame()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm px-8 py-3 rounded-xl border border-emerald-400 shadow-lg transition">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> Main Semula
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="w-full max-w-5xl bg-slate-900/90 border-t border-slate-800 px-4 py-3 flex items-center justify-between z-20">
+        <!-- Virtual D-Pad for Mobile -->
+        <div class="flex items-center gap-1.5 md:gap-2">
+            <div class="grid grid-cols-3 gap-1 w-28 h-28 md:w-32 md:h-32">
+                <div></div>
+                <button id="btn-up" class="dpad-btn rounded-t-lg flex items-center justify-center text-blue-400 text-lg">
+                    <i class="fa-solid fa-caret-up"></i>
+                </button>
+                <div></div>
+                <button id="btn-left" class="dpad-btn rounded-l-lg flex items-center justify-center text-blue-400 text-lg">
+                    <i class="fa-solid fa-caret-left"></i>
+                </button>
+                <div class="bg-slate-950 rounded border border-slate-800 flex items-center justify-center text-[10px] text-slate-600 font-mono">PAD</div>
+                <button id="btn-right" class="dpad-btn rounded-r-lg flex items-center justify-center text-blue-400 text-lg">
+                    <i class="fa-solid fa-caret-right"></i>
+                </button>
+                <div></div>
+                <button id="btn-down" class="dpad-btn rounded-b-lg flex items-center justify-center text-blue-400 text-lg">
+                    <i class="fa-solid fa-caret-down"></i>
+                </button>
+                <div></div>
+            </div>
+        </div>
+
+        <!-- Controls Guide & Interact Action Button -->
+        <div class="flex items-center gap-4">
+            <div class="hidden sm:block text-slate-400 text-xs">
+                <p><span class="font-mono bg-slate-800 px-1.5 py-0.5 rounded text-blue-300">WASD</span> / <span class="font-mono bg-slate-800 px-1.5 py-0.5 rounded text-blue-300">Anak Panah</span> : Bergerak</p>
+                <p><span class="font-mono bg-slate-800 px-1.5 py-0.5 rounded text-blue-300">E</span> : Interaksi</p>
+            </div>
+
+            <button id="btn-interact" onclick="triggerInteraction()" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-sm md:text-base px-6 py-4 rounded-2xl border-2 border-blue-400 shadow-lg shadow-blue-600/30 active:scale-95 transition flex items-center gap-2">
+                <i class="fa-solid fa-hand-pointer text-lg"></i>
+                <span>INTERAKSI</span>
+            </button>
+        </div>
+    </footer>
+
+    <div id="help-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                <h3 class="font-bold text-blue-400 text-base"><i class="fa-solid fa-circle-info mr-2"></i> Panduan Detektif</h3>
+                <button onclick="closeHelpModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="text-xs text-slate-300 space-y-3 leading-relaxed">
+                <p><strong>Kawalan Pergerakan:</strong> Gunakan papan kekunci (WASD / Anak Panah) atau Pad Virtual pada skrin untuk menggerakkan detektif anda.</p>
+                <p><strong>Interaksi:</strong> Dekati NPC, Kabinet Rekod, atau Terminal Komputer dan tekan butang <strong>INTERAKSI</strong> atau kekunci <strong>[E]</strong>.</p>
+                <p><strong>Objektif Game:</strong> Selesaikan 3 misi pangkalan data di 3 kawasan sekolah untuk membuka pintu yang terkunci dan menyelamatkan pangkalan data kelab sekolah!</p>
+            </div>
+            <button onclick="closeHelpModal()" class="mt-5 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl text-xs">
+                Tutup Panduan
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game World Setup
+        const GRID_SIZE = 32;
+        const MAP_COLS = 20;
+        const MAP_ROWS = 15;
+
+        canvas.width = MAP_COLS * GRID_SIZE; // 640
+        canvas.height = MAP_ROWS * GRID_SIZE; // 480
+
+        let soundEnabled = true;
+        let score = 0;
+        let currentArea = 1; // 1: Bilik Rekod, 2: Makmal Komputer, 3: Bilik Pelayan
+        let isModalOpen = false;
+        let activePuzzle = null;
+
+        // Sound FX Generators using Web Audio API
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration) {
+            if (!soundEnabled) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type || 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e){}
+        }
+
+        function playSound(type) {
+            if (type === 'step') playTone(120, 'triangle', 0.05);
+            if (type === 'interact') playTone(440, 'sine', 0.1);
+            if (type === 'correct') { playTone(523.25, 'sine', 0.1); setTimeout(() => playTone(659.25, 'sine', 0.2), 100); }
+            if (type === 'wrong') playTone(150, 'sawtooth', 0.3);
+            if (type === 'unlock') playTone(880, 'square', 0.3);
+        }
+
+        function toggleAudio() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-icon').className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+        }
+
+        // Player State
+        const player = {
+            x: 3 * GRID_SIZE,
+            y: 7 * GRID_SIZE,
+            width: 24,
+            height: 28,
+            speed: 3,
+            direction: 'down', // up, down, left, right
+            isMoving: false,
+            animFrame: 0,
+            animTimer: 0
+        };
+
+        // Key Press Controls
+        const keys = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            interact: false
+        };
+
+        // Maps Definition (0: floor, 1: wall, 2: locked door, 3: desk, 4: cabinet, 5: terminal)
+        const maps = {
+            1: {
+                name: 'Bilik Rekod Sekolah',
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,4,4,0,0,4,4,0,0,1,1,0,0,4,4,0,0,4,4,1],
+                    [1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1],
+                    [1,0,3,3,0,0,3,3,0,0,0,0,3,3,0,0,3,3,0,1],
+                    [1,0,3,3,0,0,3,3,0,0,0,0,3,3,0,0,3,3,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+                    [1,0,3,3,0,0,3,3,0,0,0,0,3,3,0,0,3,3,0,1],
+                    [1,0,3,3,0,0,3,3,0,0,0,0,3,3,0,0,3,3,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,4,4,0,0,4,4,0,0,0,0,0,0,4,4,0,0,4,4,1],
+                    [1,4,4,0,0,4,4,0,0,0,0,0,0,4,4,0,0,4,4,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                npcs: [
+                    { id: 'cikgu_azman', name: 'Cikgu Azman', x: 5, y: 6, icon: 'fa-user-tie', dialogueIndex: 0 }
+                ],
+                interactables: [
+                    { id: 'cabinet_records', name: 'Kabinet Rekod Kelab', x: 2, y: 1, type: 'puzzle', puzzleId: 'misi1_keys' },
+                    { id: 'terminal_misi1', name: 'Terminal Pengesahan Key', x: 14, y: 1, type: 'puzzle', puzzleId: 'misi1_duplication' },
+                    { id: 'door_to_area2', name: 'Pintu ke Makmal Komputer', x: 19, y: 7, type: 'door', targetArea: 2 }
+                ]
+            },
+            2: {
+                name: 'Makmal Komputer',
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,5,5,0,5,5,0,5,5,1,1,5,5,0,5,5,0,5,5,1],
+                    [1,3,3,0,3,3,0,3,3,1,1,3,3,0,3,3,0,3,3,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,5,5,0,5,5,0,5,5,0,0,5,5,0,5,5,0,5,5,1],
+                    [1,3,3,0,3,3,0,3,3,0,0,3,3,0,3,3,0,3,3,1],
+                    [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+                    [1,5,5,0,5,5,0,5,5,0,0,5,5,0,5,5,0,5,5,1],
+                    [1,3,3,0,3,3,0,3,3,0,0,3,3,0,3,3,0,3,3,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                npcs: [
+                    { id: 'pustakawan', name: 'Teh Pustakawan ICT', x: 10, y: 6, icon: 'fa-user-nurse', dialogueIndex: 0 }
+                ],
+                interactables: [
+                    { id: 'pc_erd_cardinality', name: 'Komputer Utama ERD', x: 2, y: 1, type: 'puzzle', puzzleId: 'misi2_erd' },
+                    { id: 'pc_erd_relationship', name: 'Terminal Hubungan Entiti', x: 16, y: 1, type: 'puzzle', puzzleId: 'misi2_keys_rel' },
+                    { id: 'door_to_area1', name: 'Pintu ke Bilik Rekod', x: 0, y: 7, type: 'door', targetArea: 1 },
+                    { id: 'door_to_area3', name: 'Pintu Kebal Bilik Pelayan', x: 19, y: 7, type: 'door', targetArea: 3 }
+                ]
+            },
+            3: {
+                name: 'Bilik Pelayan Utama',
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,5,1,5,1,5,1,5,1,1,1,1,5,1,5,1,5,1,5,1],
+                    [1,5,1,5,1,5,1,5,1,1,1,1,5,1,5,1,5,1,5,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,5,1,5,1,5,1,5,1,0,0,1,5,1,5,1,5,1,5,1],
+                    [1,5,1,5,1,5,1,5,1,0,0,1,5,1,5,1,5,1,5,1],
+                    [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,5,1,5,1,5,1,5,1,0,0,1,5,1,5,1,5,1,5,1],
+                    [1,5,1,5,1,5,1,5,1,0,0,1,5,1,5,1,5,1,5,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                npcs: [
+                    { id: 'juruteknik', name: 'Juruteknik Server System', x: 10, y: 7, icon: 'fa-user-gear', dialogueIndex: 0 }
+                ],
+                interactables: [
+                    { id: 'server_norm_1nf', name: 'Pelayan Normalisasi 1NF & 2NF', x: 3, y: 1, type: 'puzzle', puzzleId: 'misi3_norm12' },
+                    { id: 'server_norm_3nf', name: 'Konsol Utama Penormalan 3NF', x: 16, y: 1, type: 'puzzle', puzzleId: 'misi3_norm3' },
+                    { id: 'door_back_to_area2', name: 'Pintu Kembali ke Makmal', x: 0, y: 7, type: 'door', targetArea: 2 }
+                ]
+            }
+        };
+
+        // Mission Progression Tracking
+        const missions = {
+            misi1_keys: { completed: false, score: 20 },
+            misi1_duplication: { completed: false, score: 15 },
+            misi2_erd: { completed: false, score: 20 },
+            misi2_keys_rel: { completed: false, score: 15 },
+            misi3_norm12: { completed: false, score: 15 },
+            misi3_norm3: { completed: false, score: 15 }
+        };
+
+        const dialogueData = {
+            cikgu_azman: [
+                "Selamat datang, Detektif Data! Sistem Pengurusan Kelab Sekolah sedang mengalami krisis integriti data.",
+                "Beberapa rekod murid bertindih, dan pangkalan data kelab tidak mempunyai Kunci Utama (Primary Key) yang sah.",
+                "Sila periksa Kabinet Rekod dan Terminal Pengesahan di Bilik Rekod ini untuk menyelesaikan Misi 1!",
+                "Selepas selesai Misi 1, pintu ke Makmal Komputer akan terbuka."
+            ],
+            pustakawan: [
+                "Tahniah kerana berjaya melepassi Bilik Rekod! Di Makmal Komputer ini, masalah utama adalah Hubungan Entiti (ERD).",
+                "Hubungan antara Jadual Murid, Jadual Kelab, dan Jadual Keahlian kelihatannya rosak dan kardinalitinya tidak betul.",
+                "Periksa Komputer ERD Utama untuk memetakan hubungan 1:1, 1:M, dan M:N dengan betul!"
+            ],
+            juruteknik: [
+                "Ini adalah Bilik Pelayan Utama! Ini adalah peringkat akhir siasatan pangkalan data.",
+                "Pangkalan data kita mengalami Kebergantungan Fungsi Separa dan Transitif (Partial & Transitive Dependencies).",
+                "Anda perlu melakukan Penormalan (Normalization) dari 1NF, 2NF hingga 3NF pada konsol pelayan!",
+                "Selesaikan penormalan untuk memulihkan seluruh sistem sekolah!"
+            ]
+        };
+
+        let activeDialogue = null;
+        let dialogueStep = 0;
+
+        function startDialogue(npcId) {
+            const map = maps[currentArea];
+            const npc = map.npcs.find(n => n.id === npcId);
+            if (!npc) return;
+
+            activeDialogue = dialogueData[npcId];
+            dialogueStep = 0;
+            isModalOpen = true;
+
+            document.getElementById('npc-avatar').innerHTML = `<i class="fa-solid ${npc.icon}"></i>`;
+            document.getElementById('dialogue-speaker').innerText = npc.name;
+            document.getElementById('dialogue-text').innerText = activeDialogue[dialogueStep];
+            document.getElementById('dialogue-box').classList.remove('hidden');
+            playSound('interact');
+        }
+
+        function advanceDialogue() {
+            if (!activeDialogue) return;
+            dialogueStep++;
+            if (dialogueStep < activeDialogue.length) {
+                document.getElementById('dialogue-text').innerText = activeDialogue[dialogueStep];
+                playSound('interact');
+            } else {
+                closeDialogue();
+            }
+        }
+
+        function closeDialogue() {
+            document.getElementById('dialogue-box').classList.add('hidden');
+            activeDialogue = null;
+            isModalOpen = false;
+        }
+
+        const puzzlesData = {
+            misi1_keys: {
+                title: "Misi 1A: Mengenal Pasti Kunci Utama & Kunci Asing",
+                subtitle: "Topik 2.2.1 - Konsep Kunci Pangkalan Data Hubungan",
+                type: "mcq",
+                question: "Jadual 'MURID' mempunyai medan berikut: [ID_Murid, Nama_Murid, No_KP, ID_Kelab]. Antara berikut, yang manakah paling sesuai dijadikan **KUNCI UTAMA (Primary Key)** dan **KUNCI ASING (Foreign Key)**?",
+                options: [
+                    { id: 'A', text: 'Kunci Utama: ID_Murid | Kunci Asing: ID_Kelab', correct: true, explain: 'Tepat! ID_Murid bersifat unik untuk mengenal pasti murid, manakala ID_Kelab merujuk ke jadual KELAB.' },
+                    { id: 'B', text: 'Kunci Utama: Nama_Murid | Kunci Asing: ID_Murid', correct: false, explain: 'Nama_Murid boleh bertindih (sama), jadi tidak boleh dijadikan Kunci Utama.' },
+                    { id: 'C', text: 'Kunci Utama: ID_Kelab | Kunci Asing: No_KP', correct: false, explain: 'ID_Kelab di jadual Murid berfungsi merujuk kelab, bukan kunci utama murid.' },
+                    { id: 'D', text: 'Kunci Utama: No_KP | Kunci Asing: Nama_Murid', correct: false, explain: 'Nama_Murid bukan kunci asing.' }
+                ]
+            },
+            misi1_duplication: {
+                title: "Misi 1B: Pengesahan Keunikan Kunci Utama",
+                subtitle: "Topik 2.2.1 - Integriti Data & Keunikan Kunci",
+                type: "drag_select",
+                question: "Perhatikan rekod Jadual MURID di bawah. Rekod manakah yang **MELANGGAR** syarat Kunci Utama kerana berlaku duplikasi?",
+                tableData: [
+                    { id: 'R1', idMurid: 'M101', nama: 'Ahmad Faiz', kelab: 'K01', duplicate: false },
+                    { id: 'R2', idMurid: 'M102', nama: 'Siti Nurhaliza', kelab: 'K02', duplicate: false },
+                    { id: 'R3', idMurid: 'M101', nama: 'Tan Wei Ming', kelab: 'K01', duplicate: true }, // DUPLICATE
+                    { id: 'R4', idMurid: 'M104', nama: 'Kavitha Devi', kelab: 'K03', duplicate: false }
+                ]
+            },
+            misi2_erd: {
+                title: "Misi 2A: Kardinaliti Hubungan Entiti (ERD)",
+                subtitle: "Topik 2.2.2 - Diagram Hubungan Entiti (1:1, 1:M, M:N)",
+                type: "mcq",
+                question: "Seorang **MURID** boleh menyertai **BANYAK** Kelab, dan satu **KELAB** boleh dianggotai oleh **BANYAK** Murid. Apakah kardinaliti hubungan antara Entiti MURID dan Entiti KELAB?",
+                options: [
+                    { id: 'A', text: 'Satu ke Satu (1 : 1)', correct: false, explain: 'Kardinaliti 1:1 hanya untuk hubungan tunggal.' },
+                    { id: 'B', text: 'Satu ke Banyak (1 : M)', correct: false, explain: '1:M bermaksud kelab mempunyai ramai murid, tetapi murid hanya boleh sertai 1 kelab.' },
+                    { id: 'C', text: 'Banyak ke Banyak (M : N)', correct: true, explain: 'Cemerlang! Hubungan M:N memerlukan jadual perantara (Jadual Keahlian) untuk menghapuskan hubungan kompleks.' },
+                    { id: 'D', text: 'Banyak ke Satu (M : 1)', correct: false, explain: 'Sama seperti 1:M terbalik.' }
+                ]
+            },
+            misi2_keys_rel: {
+                title: "Misi 2B: Pembentukan Jadual Perantara (Junction Table)",
+                subtitle: "Topik 2.2.2 - Resolusi Hubungan M:N",
+                type: "mcq",
+                question: "Bagi menyelesaikan hubungan M:N antara Entiti MURID (ID_Murid) dan Entiti KELAB (ID_Kelab), **Jadual KEAHLIAN** dibentuk. Apakah Kunci Komposit (Composite Key) yang sesuai bagi Jadual KEAHLIAN?",
+                options: [
+                    { id: 'A', text: 'ID_Keahlian sahaja', correct: false, explain: 'Kunci tunggal tidak menghubungkan kedua-dua entiti secara komposit.' },
+                    { id: 'B', text: 'Gabungan (ID_Murid + ID_Kelab)', correct: true, explain: 'Tepat! Kunci Komposit menggabungkan dua kunci asing dari entiti asal untuk membentuk kunci utama unik.' },
+                    { id: 'C', text: 'Nama_Murid + Nama_Kelab', correct: false, explain: 'Medan teks nama tidak disyorkan sebagai kunci.' },
+                    { id: 'D', text: 'ID_Murid sahaja', correct: false, explain: 'Ini membolehkan murid menyertai 1 kelab sahaja.' }
+                ]
+            },
+            misi3_norm12: {
+                title: "Misi 3A: Penormalan 1NF dan 2NF",
+                subtitle: "Topik 2.2.3 - Kebergantungan Fungsi Separa",
+                type: "mcq",
+                question: "Sebuah jadual berada dalam **Bentuk Normal Kedua (2NF)** apabila ia sudah mencapai 1NF dan tidak mempunyai **__________________**.",
+                options: [
+                    { id: 'A', text: 'Kebergantungan Fungsi Separa (Partial Dependency)', correct: true, explain: 'Syabas! 2NF menghapuskan kebergantungan separa di mana atribut bukan kunci bergantung pada sebahagian kunci komposit.' },
+                    { id: 'B', text: 'Kebergantungan Fungsi Transitif', correct: false, explain: 'Ini adalah syarat untuk mencapai 3NF.' },
+                    { id: 'C', text: 'Atribut Bernilai Banyak (Repeating Groups)', correct: false, explain: 'Ini adalah syarat untuk mencapai 1NF.' },
+                    { id: 'D', text: 'Kunci Utama', correct: false, explain: 'Setiap jadual memerlukan Kunci Utama.' }
+                ]
+            },
+            misi3_norm3: {
+                title: "Misi 3B: Penormalan 3NF (Bentuk Normal Ketiga)",
+                subtitle: "Topik 2.2.3 - Kebergantungan Fungsi Transitif",
+                type: "mcq",
+                question: "Dalam Jadual PANGKALAN_DATA: [ID_Murid (PK), Nama_Murid, ID_Kelab, Nama_Kelab]. Medan 'Nama_Kelab' bergantung kepada 'ID_Kelab', manakala 'ID_Kelab' bergantung kepada 'ID_Murid'. Ini dinamakan Kebergantungan Transitif. Bagaimana menukarkannya kepada **3NF**?",
+                options: [
+                    { id: 'A', text: 'Pisahkan kepada 2 Jadual: MURID (ID_Murid, Nama_Murid, ID_Kelab) dan KELAB (ID_Kelab, Nama_Kelab)', correct: true, explain: 'Sempurna! Menghapuskan kebergantungan transitif menjadikan pangkalan data mencapai 3NF!' },
+                    { id: 'B', text: 'Padamkan medan ID_Kelab dari jadual.', correct: false, explain: 'Ini membuang hubungan antara murid dan kelab.' },
+                    { id: 'C', text: 'Gabungkan semua medan menjadi satu teks panjang.', correct: false, explain: 'Ini merosakkan penormalan 1NF.' },
+                    { id: 'D', text: 'Kekalkan jadual sedia ada tanpa perubahan.', correct: false, explain: 'Kebergantungan transitif masih wujud.' }
+                ]
+            }
+        };
+
+        let selectedPuzzleOption = null;
+
+        function openPuzzleModal(puzzleId) {
+            activePuzzle = puzzlesData[puzzleId];
+            activePuzzle.id = puzzleId;
+            selectedPuzzleOption = null;
+
+            document.getElementById('puzzle-title').innerText = activePuzzle.title;
+            document.getElementById('puzzle-subtitle').innerText = activePuzzle.subtitle;
+
+            const container = document.getElementById('puzzle-content');
+            container.innerHTML = '';
+
+            if (activePuzzle.type === 'mcq') {
+                let html = `<p class="text-sm md:text-base text-slate-100 font-medium mb-4 leading-relaxed">${activePuzzle.question}</p>`;
+                html += `<div class="space-y-2.5">`;
+                activePuzzle.options.forEach(opt => {
+                    html += `
+                        <button onclick="selectPuzzleOption('${opt.id}')" id="opt-${opt.id}" class="puzzle-opt-btn w-full text-left p-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full bg-slate-700 text-blue-400 font-bold flex items-center justify-center text-xs flex-shrink-0 border border-slate-600">${opt.id}</span>
+                            <span class="text-xs md:text-sm text-slate-200 mt-0.5">${opt.text}</span>
+                        </button>
+                    `;
+                });
+                html += `</div>`;
+                container.innerHTML = html;
+            } else if (activePuzzle.type === 'drag_select') {
+                let html = `<p class="text-sm md:text-base text-slate-100 font-medium mb-3">${activePuzzle.question}</p>`;
+                html += `<div class="overflow-x-auto rounded-lg border border-slate-700 mb-3">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-800 text-blue-400 font-mono border-b border-slate-700">
+                                    <tr>
+                                        <th class="p-2">ID_Murid (PK)</th>
+                                        <th class="p-2">Nama_Murid</th>
+                                        <th class="p-2">ID_Kelab</th>
+                                        <th class="p-2 text-center">Tindakan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800 bg-slate-900">`;
+                activePuzzle.tableData.forEach(row => {
+                    html += `
+                        <tr id="row-${row.id}" class="hover:bg-slate-800/50">
+                            <td class="p-2 font-mono text-amber-400 font-bold">${row.idMurid}</td>
+                            <td class="p-2 text-slate-200">${row.nama}</td>
+                            <td class="p-2 text-slate-300 font-mono">${row.kelab}</td>
+                            <td class="p-2 text-center">
+                                <button onclick="selectPuzzleOption('${row.id}')" id="opt-${row.id}" class="puzzle-opt-btn px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[11px] text-slate-300">
+                                    Pilih Rekod
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table></div>`;
+                container.innerHTML = html;
+            }
+
+            document.getElementById('puzzle-modal').classList.remove('hidden');
+            isModalOpen = true;
+            playSound('interact');
+        }
+
+        function selectPuzzleOption(optionId) {
+            selectedPuzzleOption = optionId;
+            playSound('step');
+
+            // Visual toggle
+            document.querySelectorAll('.puzzle-opt-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'border-blue-400', 'text-white');
+                btn.classList.add('bg-slate-800', 'border-slate-700');
+            });
+
+            const selBtn = document.getElementById(`opt-${optionId}`);
+            if (selBtn) {
+                selBtn.classList.remove('bg-slate-800', 'border-slate-700');
+                selBtn.classList.add('bg-blue-600', 'border-blue-400', 'text-white');
+            }
+        }
+
+        function submitPuzzleAnswer() {
+            if (!selectedPuzzleOption) {
+                alert("Sila pilih satu jawapan sebelum menghantar.");
+                return;
+            }
+
+            let isCorrect = false;
+            let explanation = "";
+
+            if (activePuzzle.type === 'mcq') {
+                const opt = activePuzzle.options.find(o => o.id === selectedPuzzleOption);
+                if (opt) {
+                    isCorrect = opt.correct;
+                    explanation = opt.explain;
+                }
+            } else if (activePuzzle.type === 'drag_select') {
+                const row = activePuzzle.tableData.find(r => r.id === selectedPuzzleOption);
+                if (row) {
+                    isCorrect = row.duplicate;
+                    explanation = isCorrect 
+                        ? "Tepat sekali! Rekod ID_Murid 'M101' wujud dua kali dengan nama berbeza, melanggar keunikan Kunci Utama."
+                        : "Kurang tepat. Rekod ini tidak bertindih.";
+                }
+            }
+
+            if (isCorrect) {
+                playSound('correct');
+                missions[activePuzzle.id].completed = true;
+                score += missions[activePuzzle.id].score;
+                updateHUD();
+
+                alert(`BERJAYA! 🎉\n\n${explanation}\n\n+${missions[activePuzzle.id].score} Mata Siasatan!`);
+                closePuzzleModal();
+                checkMissionProgress();
+            } else {
+                playSound('wrong');
+                alert(`KURANG TEPAT! ❌\n\n${explanation}\n\nSila cuba lagi!`);
+            }
+        }
+
+        function closePuzzleModal() {
+            document.getElementById('puzzle-modal').classList.add('hidden');
+            isModalOpen = false;
+            activePuzzle = null;
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('current-location-text').innerText = `Kawasan: ${maps[currentArea].name}`;
+
+            const completedCount = Object.values(missions).filter(m => m.completed).length;
+            document.getElementById('mission-progress-text').innerText = `${completedCount} / ${Object.keys(missions).length}`;
+        }
+
+        function checkMissionProgress() {
+            // Check if doors should be unlocked
+            if (currentArea === 1 && missions.misi1_keys.completed && missions.misi1_duplication.completed) {
+                playSound('unlock');
+                alert("SYABAS! Siasatan Bilik Rekod selesai. Pintu ke Makmal Komputer kini DIBUKA!");
+            } else if (currentArea === 2 && missions.misi2_erd.completed && missions.misi2_keys_rel.completed) {
+                playSound('unlock');
+                alert("TAHNIAH! Hubungan Entiti ERD berjaya dipulihkan. Pintu Kebal Bilik Pelayan kini DIBUKA!");
+            } else if (currentArea === 3 && missions.misi3_norm12.completed && missions.misi3_norm3.completed) {
+                playSound('unlock');
+                showVictoryScreen();
+            }
+        }
+
+        function showVictoryScreen() {
+            document.getElementById('final-score').innerText = `${score} / 100`;
+            document.getElementById('victory-screen').classList.remove('hidden');
+            playSound('correct');
+        }
+
+        function restartGame() {
+            score = 0;
+            currentArea = 1;
+            player.x = 3 * GRID_SIZE;
+            player.y = 7 * GRID_SIZE;
+            Object.keys(missions).forEach(k => missions[k].completed = false);
+            document.getElementById('victory-screen').classList.add('hidden');
+            updateHUD();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (isModalOpen) {
+                if (e.key === 'Escape') {
+                    closeDialogue();
+                    closePuzzleModal();
+                }
+                return;
+            }
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.up = true;
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.down = true;
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'e' || e.key === 'E') triggerInteraction();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.up = false;
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.down = false;
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.right = false;
+        });
+
+        // Touch Control Binding for Mobile D-Pad
+        function bindTouchButton(elementId, keyName) {
+            const btn = document.getElementById(elementId);
+            if (!btn) return;
+            
+            const startPress = (e) => {
+                e.preventDefault();
+                keys[keyName] = true;
+            };
+            const endPress = (e) => {
+                e.preventDefault();
+                keys[keyName] = false;
+            };
+
+            btn.addEventListener('touchstart', startPress);
+            btn.addEventListener('touchend', endPress);
+            btn.addEventListener('mousedown', startPress);
+            btn.addEventListener('mouseup', endPress);
+            btn.addEventListener('mouseleave', endPress);
+        }
+
+        bindTouchButton('btn-up', 'up');
+        bindTouchButton('btn-down', 'down');
+        bindTouchButton('btn-left', 'left');
+        bindTouchButton('btn-right', 'right');
+
+        function checkTileCollision(x, y) {
+            const grid = maps[currentArea].grid;
+            
+            // Player Bounding Box
+            const left = Math.floor(x / GRID_SIZE);
+            const right = Math.floor((x + player.width - 1) / GRID_SIZE);
+            const top = Math.floor(y / GRID_SIZE);
+            const bottom = Math.floor((y + player.height - 1) / GRID_SIZE);
+
+            if (left < 0 || right >= MAP_COLS || top < 0 || bottom >= MAP_ROWS) return true;
+
+            for (let r = top; r <= bottom; r++) {
+                for (let c = left; c <= right; c++) {
+                    const tile = grid[r][c];
+                    // 1: wall, 3: desk, 4: cabinet, 5: terminal/server
+                    if (tile === 1 || tile === 3 || tile === 4 || tile === 5) {
+                        return true;
+                    }
+                    // Locked door check
+                    if (tile === 2) {
+                        if (currentArea === 1 && (!missions.misi1_keys.completed || !missions.misi1_duplication.completed)) return true;
+                        if (currentArea === 2 && (!missions.misi2_erd.completed || !missions.misi2_keys_rel.completed)) return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function updatePlayer() {
+            if (isModalOpen) return;
+
+            let dx = 0;
+            let dy = 0;
+
+            if (keys.up) { dy -= player.speed; player.direction = 'up'; }
+            if (keys.down) { dy += player.speed; player.direction = 'down'; }
+            if (keys.left) { dx -= player.speed; player.direction = 'left'; }
+            if (keys.right) { dx += player.speed; player.direction = 'right'; }
+
+            player.isMoving = (dx !== 0 || dy !== 0);
+
+            if (player.isMoving) {
+                player.animTimer++;
+                if (player.animTimer % 8 === 0) {
+                    player.animFrame = (player.animFrame + 1) % 4;
+                    playSound('step');
+                }
+
+                // X Collision
+                if (!checkTileCollision(player.x + dx, player.y)) {
+                    player.x += dx;
+                }
+                // Y Collision
+                if (!checkTileCollision(player.x, player.y + dy)) {
+                    player.y += dy;
+                }
+
+                checkNearbyInteractables();
+            }
+        }
+
+        let currentTargetInteractable = null;
+
+        function checkNearbyInteractables() {
+            const map = maps[currentArea];
+            const pX = player.x + player.width / 2;
+            const pY = player.y + player.height / 2;
+
+            currentTargetInteractable = null;
+
+            // Check NPCs
+            map.npcs.forEach(npc => {
+                const npcX = npc.x * GRID_SIZE + GRID_SIZE / 2;
+                const npcY = npc.y * GRID_SIZE + GRID_SIZE / 2;
+                const dist = Math.hypot(pX - npcX, pY - npcY);
+
+                if (dist < GRID_SIZE * 1.5) {
+                    currentTargetInteractable = { type: 'npc', data: npc };
+                }
+            });
+
+            // Check Interactable Objects
+            map.interactables.forEach(item => {
+                const itemX = item.x * GRID_SIZE + GRID_SIZE / 2;
+                const itemY = item.y * GRID_SIZE + GRID_SIZE / 2;
+                const dist = Math.hypot(pX - itemX, pY - itemY);
+
+                if (dist < GRID_SIZE * 1.5) {
+                    currentTargetInteractable = { type: item.type, data: item };
+                }
+            });
+
+            const prompt = document.getElementById('interaction-prompt');
+            if (currentTargetInteractable) {
+                prompt.classList.remove('hidden');
+                let name = currentTargetInteractable.data.name || 'Objek';
+                document.getElementById('interaction-text').innerText = `[E] Interaksi: ${name}`;
+            } else {
+                prompt.classList.add('hidden');
+            }
+        }
+
+        function triggerInteraction() {
+            if (isModalOpen) return;
+            if (!currentTargetInteractable) return;
+
+            const target = currentTargetInteractable;
+            if (target.type === 'npc') {
+                startDialogue(target.data.id);
+            } else if (target.type === 'puzzle') {
+                openPuzzleModal(target.data.puzzleId);
+            } else if (target.type === 'door') {
+                switchArea(target.data.targetArea);
+            }
+        }
+
+        function switchArea(newArea) {
+            currentArea = newArea;
+            if (newArea === 1) {
+                player.x = 17 * GRID_SIZE;
+                player.y = 7 * GRID_SIZE;
+            } else if (newArea === 2) {
+                player.x = 2 * GRID_SIZE;
+                player.y = 7 * GRID_SIZE;
+            } else if (newArea === 3) {
+                player.x = 2 * GRID_SIZE;
+                player.y = 7 * GRID_SIZE;
+            }
+            playSound('interact');
+            updateHUD();
+        }
+
+        function renderMap() {
+            const map = maps[currentArea];
+            const grid = map.grid;
+
+            for (let r = 0; r < MAP_ROWS; r++) {
+                for (let c = 0; c < MAP_COLS; c++) {
+                    const tile = grid[r][c];
+                    const x = c * GRID_SIZE;
+                    const y = r * GRID_SIZE;
+
+                    // Floor Tile
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(x, y, GRID_SIZE, GRID_SIZE);
+                    ctx.strokeStyle = '#334155';
+                    ctx.strokeRect(x, y, GRID_SIZE, GRID_SIZE);
+
+                    if (tile === 1) {
+                        // Wall Tile
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(x, y, GRID_SIZE, GRID_SIZE);
+                        ctx.fillStyle = '#334155';
+                        ctx.fillRect(x + 2, y + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+                    } else if (tile === 2) {
+                        // Locked / Unlocked Door
+                        const isUnlocked = (currentArea === 1 && missions.misi1_keys.completed && missions.misi1_duplication.completed) ||
+                                           (currentArea === 2 && missions.misi2_erd.completed && missions.misi2_keys_rel.completed);
+
+                        ctx.fillStyle = isUnlocked ? '#059669' : '#dc2626';
+                        ctx.fillRect(x + 4, y, GRID_SIZE - 8, GRID_SIZE);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = '10px sans-serif';
+                        ctx.fillText(isUnlocked ? 'OPEN' : 'LOCK', x + 4, y + 20);
+                    } else if (tile === 3) {
+                        // Desk
+                        ctx.fillStyle = '#b45309';
+                        ctx.fillRect(x + 2, y + 4, GRID_SIZE - 4, GRID_SIZE - 8);
+                        ctx.fillStyle = '#78350f';
+                        ctx.fillRect(x + 4, y + 6, GRID_SIZE - 8, GRID_SIZE - 12);
+                    } else if (tile === 4) {
+                        // Cabinet
+                        ctx.fillStyle = '#475569';
+                        ctx.fillRect(x + 4, y + 2, GRID_SIZE - 8, GRID_SIZE - 4);
+                        ctx.fillStyle = '#64748b';
+                        ctx.fillRect(x + 6, y + 6, GRID_SIZE - 12, 8);
+                        ctx.fillRect(x + 6, y + 18, GRID_SIZE - 12, 8);
+                    } else if (tile === 5) {
+                        // Server Terminal
+                        ctx.fillStyle = '#0284c7';
+                        ctx.fillRect(x + 4, y + 2, GRID_SIZE - 8, GRID_SIZE - 4);
+                        ctx.fillStyle = '#38bdf8';
+                        ctx.fillRect(x + 8, y + 6, GRID_SIZE - 16, 10);
+                    }
+                }
+            }
+
+            // Draw Interactables Highlights / Indicators
+            map.interactables.forEach(item => {
+                const ix = item.x * GRID_SIZE;
+                const iy = item.y * GRID_SIZE;
+
+                let isCompleted = missions[item.puzzleId]?.completed;
+
+                ctx.strokeStyle = isCompleted ? '#10b981' : '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(ix + 1, iy + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+
+                // Quest indicator icon
+                ctx.fillStyle = isCompleted ? '#10b981' : '#f59e0b';
+                ctx.beginPath();
+                ctx.arc(ix + GRID_SIZE / 2, iy - 6, 5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw NPCs
+            map.npcs.forEach(npc => {
+                const nx = npc.x * GRID_SIZE;
+                const ny = npc.y * GRID_SIZE;
+
+                // NPC Body
+                ctx.fillStyle = '#8b5cf6';
+                ctx.beginPath();
+                ctx.arc(nx + GRID_SIZE / 2, ny + GRID_SIZE / 2, 12, 0, Math.PI * 2);
+                ctx.fill();
+
+                // NPC Head
+                ctx.fillStyle = '#fde047';
+                ctx.beginPath();
+                ctx.arc(nx + GRID_SIZE / 2, ny + 8, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // NPC Label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 9px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(npc.name.split(' ')[0], nx + GRID_SIZE / 2, ny - 4);
+            });
+        }
+
+        function renderPlayer() {
+            const pX = player.x;
+            const pY = player.y;
+
+            // Player Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(pX + player.width / 2, pY + player.height - 2, 10, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Player Body (Detective Coat)
+            ctx.fillStyle = '#2563eb'; // Blue Detective Jacket
+            ctx.fillRect(pX + 4, pY + 10, player.width - 8, 14);
+
+            // Head
+            ctx.fillStyle = '#fca5a5';
+            ctx.beginPath();
+            ctx.arc(pX + player.width / 2, pY + 8, 7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Detective Hat
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(pX + 2, pY + 2, player.width - 4, 4);
+            ctx.fillRect(pX + 6, pY - 2, player.width - 12, 5);
+
+            // Walking Animation Offset
+            if (player.isMoving) {
+                const legOffset = (player.animFrame % 2 === 0) ? 2 : -2;
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(pX + 5, pY + 24, 5, 4 + legOffset);
+                ctx.fillRect(pX + 14, pY + 24, 5, 4 - legOffset);
+            } else {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(pX + 5, pY + 24, 5, 4);
+                ctx.fillRect(pX + 14, pY + 24, 5, 4);
+            }
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            updatePlayer();
+            renderMap();
+            renderPlayer();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            updateHUD();
+            // Trigger introductory dialogue
+            setTimeout(() => {
+                startDialogue('cikgu_azman');
+            }, 300);
+        }
+
+        function showHelpModal() {
+            document.getElementById('help-modal').classList.remove('hidden');
+        }
+
+        function closeHelpModal() {
+            document.getElementById('help-modal').classList.add('hidden');
+        }
+
+        window.onload = function() {
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
