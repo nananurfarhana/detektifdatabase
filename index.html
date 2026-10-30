@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DETEKTIF PANGKALAN DATA - Adventure Game</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Lexend:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Lexend', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+        }
+
+        .font-roblox {
+            font-family: 'Fredoka One', cursive;
+            letter-spacing: 0.05em;
+        }
+
+        /* Pixelated canvas for crisp Roblox 2.5D feel */
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 8px;
+        }
+
+        /* Pulse Highlight Animation */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px #3b82f6; transform: scale(1); }
+            50% { box-shadow: 0 0 25px #60a5fa; transform: scale(1.02); }
+        }
+        .pulse-target {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+
+        /* D-Pad Buttons */
+        .dpad-btn {
+            background: linear-gradient(145deg, #334155, #1e293b);
+            border: 2px solid #475569;
+            active: background #0284c7;
+        }
+        .dpad-btn:active {
+            background: #0284c7;
+            transform: scale(0.95);
+        }
+
+        .modal-animate {
+            animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen w-screen justify-between items-center bg-slate-950 p-2 md:p-4 select-none">
+
+    <!-- TOP HEADER / DASHBOARD -->
+    <header class="w-full max-w-6xl flex justify-between items-center bg-slate-900/90 border-2 border-slate-700 px-4 py-2 rounded-2xl shadow-lg z-10 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div class="bg-amber-500 text-slate-950 font-roblox p-2 rounded-xl text-xl flex items-center justify-center shadow-md">
+                <i class="fa-solid fa-user-shield mr-2"></i> DETEKTIF
+            </div>
+            <div>
+                <h1 class="font-roblox text-lg md:text-xl text-amber-400 tracking-wide leading-none">DETEKTIF PANGKALAN DATA</h1>
+                <p class="text-xs text-slate-400 hidden sm:block">Sains Komputer Tingkatan 4 - Bab 2</p>
+            </div>
+        </div>
+
+        <!-- Mission Progress & Badges -->
+        <div class="flex items-center gap-2 md:gap-4">
+            <div class="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                <i class="fa-solid fa-star text-amber-400 text-lg"></i>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">Mata Skor</div>
+                    <div id="scoreDisplay" class="font-roblox text-amber-300 text-base leading-none">0</div>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                <i class="fa-solid fa-bullseye text-cyan-400 text-lg"></i>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">Misi Aktif</div>
+                    <div id="missionDisplay" class="font-roblox text-cyan-300 text-sm leading-none">Misi 1</div>
+                </div>
+            </div>
+
+            <button id="btnHint" onclick="openHintModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-2 rounded-xl shadow-md transition flex items-center gap-1">
+                <i class="fa-solid fa-lightbulb"></i>
+                <span class="hidden md:inline">Petunjuk</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN GAME CANVAS CONTAINER -->
+    <main class="relative w-full max-w-6xl flex-1 my-2 flex justify-center items-center overflow-hidden">
+        
+        <!-- Interactive Game Canvas -->
+        <canvas id="gameCanvas" class="w-full h-full bg-slate-900 border-4 border-slate-800 object-contain"></canvas>
+
+        <!-- Dynamic On-Canvas Interaction Prompt -->
+        <div id="interactionPrompt" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 bg-amber-400 text-slate-950 font-roblox text-sm md:text-base px-6 py-2.5 rounded-full border-4 border-amber-200 shadow-2xl animate-bounce flex items-center gap-2 pointer-events-none z-20">
+            <i class="fa-solid fa-hand-pointer text-lg"></i>
+            <span id="promptText">Tekan [E] atau Buka Interaksi</span>
+        </div>
+
+        <!-- Overlaid Mobile Controls -->
+        <div class="md:hidden absolute bottom-4 left-4 z-20 flex flex-col items-center gap-1 opacity-80 active:opacity-100">
+            <div class="flex justify-center">
+                <button id="btnUp" class="dpad-btn w-12 h-12 rounded-t-2xl text-white text-xl flex justify-center items-center shadow-md active:bg-cyan-600"><i class="fa-solid fa-arrow-up"></i></button>
+            </div>
+            <div class="flex gap-1">
+                <button id="btnLeft" class="dpad-btn w-12 h-12 rounded-l-2xl text-white text-xl flex justify-center items-center shadow-md active:bg-cyan-600"><i class="fa-solid fa-arrow-left"></i></button>
+                <button id="btnDown" class="dpad-btn w-12 h-12 rounded-b-2xl text-white text-xl flex justify-center items-center shadow-md active:bg-cyan-600"><i class="fa-solid fa-arrow-down"></i></button>
+                <button id="btnRight" class="dpad-btn w-12 h-12 rounded-r-2xl text-white text-xl flex justify-center items-center shadow-md active:bg-cyan-600"><i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+        </div>
+
+        <!-- Mobile Interaction Action Button -->
+        <div class="md:hidden absolute bottom-6 right-6 z-20">
+            <button id="btnActionMobile" onclick="triggerInteraction()" class="w-16 h-16 bg-amber-500 active:bg-amber-400 text-slate-950 border-4 border-amber-300 rounded-full font-roblox text-xl shadow-2xl flex flex-col justify-center items-center">
+                <i class="fa-solid fa-key"></i>
+                <span class="text-[9px] font-bold">AKSI</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- FOOTER STATUS BAR -->
+    <footer class="w-full max-w-6xl bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-1.5 flex justify-between items-center text-xs text-slate-400">
+        <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1 text-emerald-400"><i class="fa-solid fa-circle text-[8px]"></i> Sistem Stabil</span>
+            <span class="hidden sm:inline">| Kawalan: WASD / Kekunci Anak Panah + [E] Interaksi</span>
+        </div>
+        <div class="font-semibold text-slate-300">
+            Modul Pangkalan Data ASK Form 4
+        </div>
+    </footer>
+
+    <!-- MODAL 1: INTRO / START SCREEN -->
+    <div id="modalStart" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex justify-center items-center z-50 p-4">
+        <div class="bg-slate-900 border-4 border-amber-500 rounded-3xl max-w-xl w-full p-6 shadow-2xl text-center modal-animate relative">
+            <div class="w-20 h-20 bg-amber-500/20 text-amber-400 border-4 border-amber-400 rounded-2xl mx-auto flex items-center justify-center text-4xl mb-4">
+                <i class="fa-solid fa-database"></i>
+            </div>
+            <h2 class="font-roblox text-2xl md:text-3xl text-amber-400 mb-2">DETEKTIF PANGKALAN DATA</h2>
+            <p class="text-slate-300 text-sm md:text-base mb-4 leading-relaxed">
+                Pusat Data Sekolah telah dijangkiti ralat misteri! Sistem maklumat murid, guru, dan matapelajaran terganggu.
+                Gunakan pengetahuan <strong class="text-amber-300">Pangkalan Data (SK T4)</strong> anda untuk menyelesaikan 3 misi utama dan memulihkan pelayan!
+            </p>
+            <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-2xl text-left mb-6 space-y-2 text-xs md:text-sm">
+                <div class="text-amber-400 font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-list-check"></i> Tiga Misi Utama:
+                </div>
+                <p>🔑 <strong>Misi 1:</strong> Kenal pasti Kekunci Utama & Kekunci Asing (SP 2.2.1)</p>
+                <p>🔗 <strong>Misi 2:</strong> Bina Model Entiti Hubungan (ERD) (SP 2.2.2)</p>
+                <p>💻 <strong>Misi 3:</strong> Selesaikan Skema Hubungan Pangkalan Data (SP 2.2.3)</p>
+            </div>
+            <button onclick="startGame()" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-roblox text-lg rounded-2xl shadow-xl transition transform active:scale-95 flex justify-center items-center gap-2">
+                <i class="fa-solid fa-play"></i> MULA SEKARANG
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 2: NPC DIALOGUE & QUESTION MODAL (MISSION 1) -->
+    <div id="modalDialogue" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+        <div class="bg-slate-900 border-4 border-cyan-500 rounded-3xl max-w-2xl w-full p-6 shadow-2xl modal-animate relative">
+            <div class="flex items-center gap-4 mb-4 border-b border-slate-800 pb-3">
+                <div id="npcAvatar" class="w-14 h-14 bg-cyan-600 rounded-2xl flex items-center justify-center text-3xl text-white shadow-inner">
+                    🤖
+                </div>
+                <div>
+                    <h3 id="npcName" class="font-roblox text-xl text-cyan-400">Pembantu Makmal</h3>
+                    <p id="npcRole" class="text-xs text-slate-400">Pembantu Sistem Pangkalan Data</p>
+                </div>
+            </div>
+
+            <div id="dialogueText" class="text-slate-200 text-sm md:text-base bg-slate-800/60 p-4 rounded-xl border border-slate-700/50 mb-4 min-h-[70px]">
+                Selamat datang, Detektif! Sila bantu kami mengenal pasti kekunci dalam jadual ini.
+            </div>
+
+            <!-- Dynamic Question Container for Mission 1 -->
+            <div id="questionContainer" class="hidden space-y-3 mb-4">
+                <div id="questionText" class="font-semibold text-amber-300 text-sm md:text-base">
+                    Apakah fungsi utama Kekunci Utama (Primary Key)?
+                </div>
+                <div id="optionsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <!-- Dynamic option buttons injected via JS -->
+                </div>
+            </div>
+
+            <!-- Table Preview Box for Quiz -->
+            <div id="tablePreviewContainer" class="hidden mb-4 overflow-x-auto bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <table id="quizTable" class="w-full text-xs text-center border-collapse">
+                    <!-- Injected dynamically -->
+                </table>
+            </div>
+
+            <!-- Modal Action Footer -->
+            <div class="flex justify-end gap-3 pt-2">
+                <button id="btnCloseDialogue" onclick="closeDialogueModal()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-sm transition">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: MISSION 2 - BINA ERD (SP 2.2.2) -->
+    <div id="modalMission2" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex justify-center items-center z-50 p-4">
+        <div class="bg-slate-900 border-4 border-emerald-500 rounded-3xl max-w-4xl w-full p-5 shadow-2xl modal-animate flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500 rounded-xl flex items-center justify-center font-bold text-lg">
+                        🔗
+                    </div>
+                    <div>
+                        <h3 class="font-roblox text-lg md:text-xl text-emerald-400">MISI 2: Pembinaan Model ERD</h3>
+                        <p class="text-xs text-slate-400">Pilih Entiti, Atribut & Kardinaliti untuk melengkapkan gambar rajah ERD.</p>
+                    </div>
+                </div>
+                <button onclick="closeMission2Modal()" class="text-slate-400 hover:text-white text-xl p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- ERD Interactive Builder Canvas / Grid -->
+            <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-xs md:text-sm text-slate-300">
+                    <p class="font-bold text-amber-300 mb-1"><i class="fa-solid fa-circle-info"></i> Senario Sistem Perpustakaan Sekolah:</p>
+                    <p>Setiap <strong>MURID</strong> boleh meminjam banyak <strong>BUKU</strong>. Setiap buku boleh dipinjam oleh ramai murid pada masa yang berbeza (Kardinaliti Many-to-Many / M:N).</p>
+                </div>
+
+                <!-- Step 1: Select Entities -->
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                    <h4 class="text-xs font-bold uppercase text-emerald-400 mb-2">1. Pilih Entiti Utama:</h4>
+                    <div class="flex flex-wrap gap-2" id="erdEntitiesList">
+                        <!-- Entity checkboxes/buttons -->
+                    </div>
+                </div>
+
+                <!-- Step 2: Attribute Linking -->
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                    <h4 class="text-xs font-bold uppercase text-emerald-400 mb-2">2. Padankan Atribut Kepada Entiti MURID:</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="erdAttributesList">
+                        <!-- Attributes -->
+                    </div>
+                </div>
+
+                <!-- Step 3: Cardinality Selector -->
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                    <h4 class="text-xs font-bold uppercase text-emerald-400 mb-2">3. Pilih Kardinaliti Hubungan (MURID — PINJAM — BUKU):</h4>
+                    <div class="grid grid-cols-3 gap-2" id="erdCardinalityList">
+                        <!-- Cardinalities -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <div id="erdFeedback" class="text-xs font-bold text-amber-400"></div>
+                <button onclick="validateMission2()" class="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-roblox rounded-xl text-sm transition shadow-lg">
+                    <i class="fa-solid fa-check-double mr-1"></i> SAHKAN ERD
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: MISSION 3 - SKEMA HUBUNGAN (SP 2.2.3) -->
+    <div id="modalMission3" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex justify-center items-center z-50 p-4">
+        <div class="bg-slate-900 border-4 border-purple-500 rounded-3xl max-w-3xl w-full p-5 shadow-2xl modal-animate flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-purple-500/20 text-purple-400 border-2 border-purple-500 rounded-xl flex items-center justify-center font-bold text-lg">
+                        💻
+                    </div>
+                    <div>
+                        <h3 class="font-roblox text-lg md:text-xl text-purple-400">MISI 3: Pecahkan Kod Skema Hubungan</h3>
+                        <p class="text-xs text-slate-400">Tentukan Kekunci Utama (PK) dan Kekunci Asing (FK) dalam Skema Hubungan.</p>
+                    </div>
+                </div>
+                <button onclick="closeMission3Modal()" class="text-slate-400 hover:text-white text-xl p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+                <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800 text-xs text-slate-300">
+                    <p class="text-purple-300 font-bold mb-1"><i class="fa-solid fa-key"></i> Panduan Penandaan Skema:</p>
+                    <p>• <strong>Kekunci Utama (PK):</strong> Bergaris bawah dalam skema (contoh: <u>ID_Murid</u>).</p>
+                    <p>• <strong>Kekunci Asing (FK):</strong> Bergaris putus-putus atau bertanda FK untuk menghubungkan jadual.</p>
+                </div>
+
+                <!-- Table 1 Schema Puzzle -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+                    <h4 class="text-sm font-bold text-amber-400 mb-2">Jadual MURID (<u>ID_Murid</u>, Nama, Kelas)</h4>
+                    <p class="text-xs text-slate-400 mb-2">Klik atribut di bawah untuk menetapkan penanda Kekunci Utama (PK):</p>
+                    <div class="flex flex-wrap gap-2" id="schemaTable1">
+                        <!-- Injected attributes -->
+                    </div>
+                </div>
+
+                <!-- Table 2 Schema Puzzle -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+                    <h4 class="text-sm font-bold text-amber-400 mb-2">Jadual PINJAMAN (ID_Pinjam, Tarikh_Pinjam, ID_Murid, Kod_Buku)</h4>
+                    <p class="text-xs text-slate-400 mb-2">Tetapkan Kekunci Utama (PK) dan Kekunci Asing (FK):</p>
+                    <div class="flex flex-wrap gap-2" id="schemaTable2">
+                        <!-- Injected attributes -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <div id="schemaFeedback" class="text-xs font-bold text-amber-400"></div>
+                <button onclick="validateMission3()" class="px-6 py-2.5 bg-purple-500 hover:bg-purple-400 text-slate-950 font-roblox rounded-xl text-sm transition shadow-lg">
+                    <i class="fa-solid fa-floppy-disk mr-1"></i> HANTAR SKEMA
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: HINT / PETUNJUK -->
+    <div id="modalHint" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+        <div class="bg-slate-900 border-2 border-amber-400 rounded-3xl max-w-md w-full p-5 shadow-2xl modal-animate text-center">
+            <div class="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-xl mx-auto flex items-center justify-center text-2xl mb-3">
+                <i class="fa-solid fa-lightbulb"></i>
+            </div>
+            <h3 class="font-roblox text-lg text-amber-400 mb-2">Petunjuk Detektif</h3>
+            <p id="hintText" class="text-slate-300 text-xs md:text-sm bg-slate-800/80 p-3 rounded-xl mb-4 border border-slate-700 text-left">
+                Buka terminal komputer atau berbual dengan NPC berdekatan untuk mengumpul klu bagi setiap misi!
+            </p>
+            <button onclick="closeHintModal()" class="w-full py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition">
+                Faham!
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 6: GAME COMPLETE / VICTORY -->
+    <div id="modalVictory" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md flex justify-center items-center z-50 p-4">
+        <div class="bg-slate-900 border-4 border-amber-400 rounded-3xl max-w-lg w-full p-6 shadow-2xl text-center modal-animate relative">
+            <div class="w-20 h-20 bg-amber-400 text-slate-950 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 shadow-lg animate-bounce">
+                🏆
+            </div>
+            <h2 class="font-roblox text-2xl md:text-3xl text-amber-400 mb-1">TAHNIAH, DETEKTIF UTAMA!</h2>
+            <p class="text-xs text-emerald-400 font-bold mb-4 uppercase tracking-wider">Sistem Pangkalan Data Sekolah Berjaya Dipulihkan!</p>
+
+            <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 mb-6 space-y-3 text-left text-xs md:text-sm">
+                <div class="flex justify-between border-b border-slate-700 pb-2">
+                    <span class="text-slate-400">Jumlah Skor:</span>
+                    <span id="finalScore" class="font-roblox text-amber-300 text-base">0</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-700 pb-2">
+                    <span class="text-slate-400">Lencana Dicapai:</span>
+                    <span class="text-amber-400 font-bold">🥇 Master Database ASK</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Status Topik SP 2.2:</span>
+                    <span class="text-emerald-400 font-bold"><i class="fa-solid fa-check"></i> 100% Menguasai</span>
+                </div>
+            </div>
+
+            <button onclick="restartGame()" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-roblox text-base rounded-2xl shadow-xl transition transform active:scale-95 flex justify-center items-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i> MAIN SEMULA
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // GLOBAL GAME STATE ENGINE
+        const gameState = {
+            score: 0,
+            currentMission: 1, // 1: Key ID, 2: ERD Builder, 3: Schema Puzzle, 4: Complete
+            m1Progress: 0,     // Questions answered in Misi 1
+            doorsUnlocked: {
+                lab: false,
+                server: false
+            },
+            player: {
+                x: 120,
+                y: 320,
+                width: 32,
+                height: 42,
+                speed: 4,
+                dir: 'down',
+                isMoving: false
+            },
+            keys: {
+                w: false, a: false, s: false, d: false,
+                ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false,
+                e: false
+            },
+            nearInteractiveObj: null
+        };
+
+        // CANVAS SETUP & RESPONSIVE RESIZING
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = Math.min(container.clientWidth, 1024);
+            canvas.height = Math.min(container.clientHeight, 576);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // MAP OBJECTS & INTERACTION ZONES
+        const mapObjects = [
+            // Outer Walls & Rooms Setup
+            { id: 'wall_top', x: 0, y: 0, w: 1024, h: 40, type: 'obstacle' },
+            { id: 'wall_bottom', x: 0, y: 536, w: 1024, h: 40, type: 'obstacle' },
+            { id: 'wall_left', x: 0, y: 0, w: 40, h: 576, type: 'obstacle' },
+            { id: 'wall_right', x: 984, y: 0, w: 40, h: 576, type: 'obstacle' },
+
+            // Room Dividers
+            { id: 'divider1', x: 340, y: 40, w: 20, h: 320, type: 'obstacle' },
+            { id: 'divider2', x: 680, y: 200, w: 20, h: 336, type: 'obstacle' },
+
+            // Interactive Doors
+            { id: 'door_lab', x: 340, y: 360, w: 20, h: 80, type: 'door', locked: true, name: 'Pintu Makmal Komputer (Buka di Misi 1)' },
+            { id: 'door_server', x: 680, y: 120, w: 20, h: 80, type: 'door', locked: true, name: 'Pintu Bilik Pelayan (Buka di Misi 2)' },
+
+            // Interactive NPCs & Terminals
+            { id: 'npc_cikgu', x: 180, y: 120, w: 40, h: 40, type: 'interactive', role: 'npc', name: 'Cikgu Nora (Tutor Pangkalan Data)', color: '#ec4899', icon: '👩‍🏫' },
+            { id: 'terminal_m1', x: 260, y: 220, w: 48, h: 48, type: 'interactive', role: 'misi1_terminal', name: 'Terminal Misi 1: Rahsia Kekunci', color: '#06b6d4', icon: '💻' },
+            { id: 'terminal_m2', x: 500, y: 150, w: 48, h: 48, type: 'interactive', role: 'misi2_erd', name: 'Terminal Misi 2: Bina ERD', color: '#10b981', icon: '🔗' },
+            { id: 'master_server', x: 840, y: 120, w: 60, h: 60, type: 'interactive', role: 'misi3_schema', name: 'Pelayan Utama (Misi 3: Skema Hubungan)', color: '#a855f7', icon: '🖥️' }
+        ];
+
+        // MISSION 1 QUESTIONS (SP 2.2.1)
+        const mission1Questions = [
+            {
+                q: "Apakah maksud Kekunci Utama (Primary Key) dalam sesebuah jadual pangkalan data?",
+                options: [
+                    "Atribut unik yang mengenal pasti setiap rekod secara khusus.",
+                    "Atribut yang mengandungi data berbentuk angka sahaja.",
+                    "Atribut yang menghubungkan dua jadual berbeza.",
+                    "Medan yang boleh dibiarkan kosong (NULL)."
+                ],
+                correct: 0,
+                tableData: {
+                    headers: ["ID_Murid (PK)", "Nama_Murid", "No_KP", "Kelas"],
+                    rows: [
+                        ["M101", "Ahmad Ali", "070101-10-1234", "4 Sains"],
+                        ["M102", "Siti Sarah", "070202-08-5678", "4 Akaun"]
+                    ]
+                }
+            },
+            {
+                q: "Berdasarkan jadual MURID di atas, atribut manakah yang paling sesuai dijadikan Kekunci Utama?",
+                options: [
+                    "Nama_Murid (kerana mudah dibaca)",
+                    "ID_Murid (kerana bernilai unik bagi setiap murid)",
+                    "Kelas (kerana semua murid ada kelas)",
+                    "Tiada yang sesuai"
+                ],
+                correct: 1,
+                tableData: {
+                    headers: ["ID_Murid (PK)", "Nama_Murid", "No_KP", "Kelas"],
+                    rows: [
+                        ["M101", "Ahmad Ali", "070101-10-1234", "4 Sains"],
+                        ["M102", "Siti Sarah", "070202-08-5678", "4 Akaun"]
+                    ]
+                }
+            },
+            {
+                q: "Apakah fungsi utama Kekunci Asing (Foreign Key)?",
+                options: [
+                    "Menghapus rekod pendua.",
+                    "Membina indeks carian pantas.",
+                    "Mewujudkan hubungan (relation) antara dua jadual.",
+                    "Mengunci jadual daripada diubah."
+                ],
+                correct: 2,
+                tableData: null
+            },
+            {
+                q: "Antara berikut, yang manakah BENAR mengenai syarat Kekunci Utama?",
+                options: [
+                    "Mesti mengandungi nilai unik dan TIDAK boleh kosong (NOT NULL).",
+                    "Boleh mempunyai nilai bernilai sama (duplikasi).",
+                    "Mesti mengandungi sekurang-kurangnya 10 aksara.",
+                    "Boleh wujud lebih daripada satu dalam jadual yang sama."
+                ],
+                correct: 0,
+                tableData: null
+            }
+        ];
+
+        // INPUT CONTROLS SETUP
+        window.addEventListener('keydown', (e) => {
+            if (gameState.keys.hasOwnProperty(e.key)) {
+                gameState.keys[e.key] = true;
+            }
+            if (e.key.toLowerCase() === 'e') {
+                triggerInteraction();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (gameState.keys.hasOwnProperty(e.key)) {
+                gameState.keys[e.key] = false;
+            }
+        });
+
+        // Mobile D-Pad Touch Controls
+        function bindTouchControl(btnId, keyName) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            
+            const startPress = (e) => {
+                e.preventDefault();
+                gameState.keys[keyName] = true;
+            };
+            const endPress = (e) => {
+                e.preventDefault();
+                gameState.keys[keyName] = false;
+            };
+
+            btn.addEventListener('touchstart', startPress, { passive: false });
+            btn.addEventListener('touchend', endPress, { passive: false });
+            btn.addEventListener('mousedown', startPress);
+            btn.addEventListener('mouseup', endPress);
+            btn.addEventListener('mouseleave', endPress);
+        }
+
+        bindTouchControl('btnUp', 'w');
+        bindTouchControl('btnDown', 's');
+        bindTouchControl('btnLeft', 'a');
+        bindTouchControl('btnRight', 'd');
+
+        // MOVEMENT & COLLISION ENGINE
+        function updatePlayerPosition() {
+            let dx = 0;
+            let dy = 0;
+
+            if (gameState.keys.w || gameState.keys.ArrowUp) { dy -= gameState.player.speed; gameState.player.dir = 'up'; }
+            if (gameState.keys.s || gameState.keys.ArrowDown) { dy += gameState.player.speed; gameState.player.dir = 'down'; }
+            if (gameState.keys.a || gameState.keys.ArrowLeft) { dx -= gameState.player.speed; gameState.player.dir = 'left'; }
+            if (gameState.keys.d || gameState.keys.ArrowRight) { dx += gameState.player.speed; gameState.player.dir = 'right'; }
+
+            gameState.player.isMoving = (dx !== 0 || dy !== 0);
+
+            // Proposed Next Bounding Box
+            const nextX = gameState.player.x + dx;
+            const nextY = gameState.player.y + dy;
+
+            // Check Collision against Map Objects & Locked Doors
+            let canMoveX = true;
+            let canMoveY = true;
+
+            for (let obj of mapObjects) {
+                // Skip unlocked doors
+                if (obj.type === 'door' && !obj.locked) continue;
+
+                // X Collision Check
+                if (checkAABB({ x: nextX, y: gameState.player.y, w: gameState.player.width, h: gameState.player.height }, obj)) {
+                    canMoveX = false;
+                }
+                // Y Collision Check
+                if (checkAABB({ x: gameState.player.x, y: nextY, w: gameState.player.width, h: gameState.player.height }, obj)) {
+                    canMoveY = false;
+                }
+            }
+
+            if (canMoveX) gameState.player.x = nextX;
+            if (canMoveY) gameState.player.y = nextY;
+
+            // Check Nearby Interaction Objects
+            checkProximity();
+        }
+
+        function checkAABB(rect1, rect2) {
+            return (
+                rect1.x < rect2.x + rect2.w &&
+                rect1.x + rect1.w > rect2.x &&
+                rect1.y < rect2.y + rect2.h &&
+                rect1.y + rect1.h > rect2.y
+            );
+        }
+
+        function checkProximity() {
+            let nearest = null;
+            let minDistance = 60; // Interaction radius
+
+            for (let obj of mapObjects) {
+                if (obj.type === 'interactive' || obj.type === 'door') {
+                    const cx = obj.x + (obj.w / 2);
+                    const cy = obj.y + (obj.h / 2);
+                    const px = gameState.player.x + (gameState.player.width / 2);
+                    const py = gameState.player.y + (gameState.player.height / 2);
+
+                    const dist = Math.hypot(cx - px, cy - py);
+                    if (dist < minDistance) {
+                        nearest = obj;
+                        minDistance = dist;
+                    }
+                }
+            }
+
+            gameState.nearInteractiveObj = nearest;
+            const prompt = document.getElementById('interactionPrompt');
+            const promptText = document.getElementById('promptText');
+
+            if (nearest) {
+                prompt.classList.remove('hidden');
+                if (nearest.type === 'door' && nearest.locked) {
+                    promptText.innerText = `🔒 ${nearest.name}`;
+                } else {
+                    promptText.innerText = `[E] Interaksi: ${nearest.name}`;
+                }
+            } else {
+                prompt.classList.add('hidden');
+            }
+        }
+
+        // RENDER / DRAW ENGINE
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Floor Tile Pattern
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            const tileSize = 40;
+            for (let x = 0; x < canvas.width; x += tileSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += tileSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw Room Labels / Zone Identifiers
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 16px Lexend';
+            ctx.fillText("ZON 1: LOBI UTAMA", 60, 70);
+            ctx.fillText("ZON 2: MAKMAL KOMPUTER", 380, 70);
+            ctx.fillText("ZON 3: BILIK PELAYAN", 720, 70);
+
+            // Draw Map Objects & Walls
+            for (let obj of mapObjects) {
+                if (obj.type === 'obstacle') {
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                    ctx.strokeStyle = '#64748b';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+                } else if (obj.type === 'door') {
+                    ctx.fillStyle = obj.locked ? '#ef4444' : '#10b981';
+                    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 12px Lexend';
+                    ctx.fillText(obj.locked ? '🔒' : '🔓', obj.x - 2, obj.y + obj.h / 2);
+                } else if (obj.type === 'interactive') {
+                    // Draw Interactive Object / Terminal Box
+                    ctx.fillStyle = obj.color || '#06b6d4';
+                    ctx.beginPath();
+                    ctx.roundRect(obj.x, obj.y, obj.w, obj.h, 12);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Draw Icon Emoji
+                    ctx.font = '22px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(obj.icon || '❓', obj.x + obj.w / 2, obj.y + obj.h / 2);
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
+                }
+            }
+
+            // Draw Roblox Blocky Player Character
+            const p = gameState.player;
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(p.x + p.width / 2, p.y + p.height - 2, 14, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Character Body (Blocky Red/Blue Uniform)
+            ctx.fillStyle = '#3b82f6'; // Blue Torso
+            ctx.beginPath();
+            ctx.roundRect(p.x + 4, p.y + 14, p.width - 8, 18, 4);
+            ctx.fill();
+
+            // Head (Yellow Blocky Roblox Style)
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.roundRect(p.x + 6, p.y, p.width - 12, 14, 4);
+            ctx.fill();
+
+            // Face Eyes
+            ctx.fillStyle = '#0f172a';
+            if (p.dir === 'down' || p.dir === 'right') {
+                ctx.fillRect(p.x + 18, p.y + 4, 3, 4);
+                ctx.fillRect(p.x + 24, p.y + 4, 3, 4);
+            } else if (p.dir === 'left') {
+                ctx.fillRect(p.x + 8, p.y + 4, 3, 4);
+                ctx.fillRect(p.x + 14, p.y + 4, 3, 4);
+            }
+
+            // Detective Hat
+            ctx.fillStyle = '#78350f';
+            ctx.fillRect(p.x + 2, p.y - 2, p.width - 4, 4);
+            ctx.fillRect(p.x + 8, p.y - 8, p.width - 16, 6);
+
+            // Legs
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(p.x + 6, p.y + 32, 8, 10);
+            ctx.fillRect(p.x + 18, p.y + 32, 8, 10);
+        }
+
+        // GAME LOOP ENGINE
+        function gameLoop() {
+            updatePlayerPosition();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // INTERACTION ROUTER
+        function triggerInteraction() {
+            const target = gameState.nearInteractiveObj;
+            if (!target) return;
+
+            if (target.type === 'door' && target.locked) {
+                alertModal('Pintu Berkunci', 'Selesaikan misi semasa untuk mendapatkan kad akses pintu ini!');
+                return;
+            }
+
+            if (target.role === 'npc') {
+                openDialogueNPC("Cikgu Nora", "Selamat datang, Detektif! Sila pergi ke Terminal Misi 1 di Zon Lobi untuk menguji kefahaman anda tentang Kekunci Utama & Kekunci Asing.");
+            } else if (target.role === 'misi1_terminal') {
+                openMission1Modal();
+            } else if (target.role === 'misi2_erd') {
+                openMission2Modal();
+            } else if (target.role === 'misi3_schema') {
+                openMission3Modal();
+            }
+        }
+
+        // MISSION 1 LOGIC ENGINE
+        function openMission1Modal() {
+            if (gameState.currentMission > 1) {
+                openDialogueNPC("Terminal Misi 1", "Misi 1 telah pun selesai! Sila teruskan ke Misi 2 di Makmal Komputer.");
+                return;
+            }
+
+            const qIndex = gameState.m1Progress;
+            if (qIndex >= mission1Questions.length) {
+                // Complete Misi 1
+                gameState.currentMission = 2;
+                gameState.doorsUnlocked.lab = false;
+                const labDoor = mapObjects.find(o => o.id === 'door_lab');
+                if (labDoor) labDoor.locked = false;
+
+                updateDashboardUI();
+                openDialogueNPC("Sistem Pangkalan Data", "Tahniah! Misi 1 Selesai (+100 Mata). Pintu Makmal Komputer kini telah DIBUKA! Sila masuk ke Makmal Komputer untuk Misi 2.");
+                return;
+            }
+
+            const qData = mission1Questions[qIndex];
+            document.getElementById('npcName').innerText = `Misi 1: Soalan ${qIndex + 1}/${mission1Questions.length}`;
+            document.getElementById('npcRole').innerText = "Topik SP 2.2.1 - Kekunci Utama & Asing";
+            document.getElementById('dialogueText').innerText = qData.q;
+
+            // Render Table Preview if exists
+            const tableContainer = document.getElementById('tablePreviewContainer');
+            const quizTable = document.getElementById('quizTable');
+            if (qData.tableData) {
+                tableContainer.classList.remove('hidden');
+                let html = `<thead><tr class="bg-slate-800 text-cyan-300">`;
+                qData.tableData.headers.forEach(h => html += `<th class="p-2 border border-slate-700">${h}</th>`);
+                html += `</tr></thead><tbody>`;
+                qData.tableData.rows.forEach(r => {
+                    html += `<tr class="border-b border-slate-800">`;
+                    r.forEach(c => html += `<td class="p-2 border border-slate-800">${c}</td>`);
+                    html += `</tr>`;
+                });
+                html += `</tbody>`;
+                quizTable.innerHTML = html;
+            } else {
+                tableContainer.classList.add('hidden');
+            }
+
+            // Render Options
+            const container = document.getElementById('questionContainer');
+            const grid = document.getElementById('optionsGrid');
+            container.classList.remove('hidden');
+            grid.innerHTML = '';
+
+            qData.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left bg-slate-800 hover:bg-cyan-600 text-slate-200 hover:text-white p-3 rounded-xl border border-slate-700 text-xs md:text-sm transition font-medium";
+                btn.innerText = `${String.fromCharCode(65 + idx)}. ${opt}`;
+                btn.onclick = () => handleAnswerMisi1(idx, qData.correct);
+                grid.appendChild(btn);
+            });
+
+            document.getElementById('modalDialogue').classList.remove('hidden');
+        }
+
+        function handleAnswerMisi1(selectedIndex, correctIndex) {
+            if (selectedIndex === correctIndex) {
+                gameState.score += 25;
+                gameState.m1Progress += 1;
+                updateDashboardUI();
+                alertModal("Jawapan Tepat!", "Tahniah! Jawapan anda betul (+25 Mata).");
+                closeDialogueModal();
+                setTimeout(() => openMission1Modal(), 400);
+            } else {
+                alertModal("Jawapan Kurang Tepat", "Cuba lagi! Perhatikan ciri-ciri unik kekunci utama.");
+            }
+        }
+
+        function openDialogueNPC(name, text) {
+            document.getElementById('npcName').innerText = name;
+            document.getElementById('npcRole').innerText = "Panduan Watak";
+            document.getElementById('dialogueText').innerText = text;
+            document.getElementById('questionContainer').classList.add('hidden');
+            document.getElementById('tablePreviewContainer').classList.add('hidden');
+            document.getElementById('modalDialogue').classList.remove('hidden');
+        }
+
+        function closeDialogueModal() {
+            document.getElementById('modalDialogue').classList.add('hidden');
+        }
+
+        // MISSION 2 LOGIC ENGINE (SP 2.2.2 - BINA ERD)
+        const erdState = {
+            selectedEntities: [],
+            selectedAttributes: [],
+            selectedCardinality: null
+        };
+
+        function openMission2Modal() {
+            if (gameState.currentMission < 2) {
+                alertModal("Akses Ditolak", "Selesaikan Misi 1 di Zon Lobi terlebih dahulu!");
+                return;
+            }
+            if (gameState.currentMission > 2) {
+                alertModal("Misi Selesai", "Misi 2 telah pun dilengkapkan! Sila ke Bilik Pelayan untuk Misi 3.");
+                return;
+            }
+
+            renderErdBuilder();
+            document.getElementById('modalMission2').classList.remove('hidden');
+        }
+
+        function renderErdBuilder() {
+            // Entities Options
+            const entities = ["MURID", "GURU", "BUKU", "KELAS"];
+            const entContainer = document.getElementById('erdEntitiesList');
+            entContainer.innerHTML = '';
+            entities.forEach(ent => {
+                const isSel = erdState.selectedEntities.includes(ent);
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2 rounded-xl text-xs font-bold transition ${isSel ? 'bg-emerald-500 text-slate-950 shadow-lg' : 'bg-slate-800 text-slate-300 border border-slate-700'}`;
+                btn.innerText = ` Entity: ${ent}`;
+                btn.onclick = () => {
+                    if (isSel) {
+                        erdState.selectedEntities = erdState.selectedEntities.filter(e => e !== ent);
+                    } else {
+                        if (erdState.selectedEntities.length < 2) erdState.selectedEntities.push(ent);
+                    }
+                    renderErdBuilder();
+                };
+                entContainer.appendChild(btn);
+            });
+
+            // Attributes Options
+            const attrs = ["ID_Murid", "Nama", "Tarikh_Lahir", "Gaji_Guru"];
+            const attrContainer = document.getElementById('erdAttributesList');
+            attrContainer.innerHTML = '';
+            attrs.forEach(attr => {
+                const isSel = erdState.selectedAttributes.includes(attr);
+                const btn = document.createElement('button');
+                btn.className = `p-2.5 rounded-xl text-xs font-semibold transition ${isSel ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300 border border-slate-700'}`;
+                btn.innerText = `Atribut: ${attr}`;
+                btn.onclick = () => {
+                    if (isSel) {
+                        erdState.selectedAttributes = erdState.selectedAttributes.filter(a => a !== attr);
+                    } else {
+                        erdState.selectedAttributes.push(attr);
+                    }
+                    renderErdBuilder();
+                };
+                attrContainer.appendChild(btn);
+            });
+
+            // Cardinality Options
+            const cards = ["1 : 1 (One-to-One)", "1 : M (One-to-Many)", "M : N (Many-to-Many)"];
+            const cardContainer = document.getElementById('erdCardinalityList');
+            cardContainer.innerHTML = '';
+            cards.forEach(card => {
+                const isSel = erdState.selectedCardinality === card;
+                const btn = document.createElement('button');
+                btn.className = `p-3 rounded-xl text-xs font-bold transition text-center ${isSel ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300 border border-slate-700'}`;
+                btn.innerText = card;
+                btn.onclick = () => {
+                    erdState.selectedCardinality = card;
+                    renderErdBuilder();
+                };
+                cardContainer.appendChild(btn);
+            });
+        }
+
+        function validateMission2() {
+            const hasMuridBuku = erdState.selectedEntities.includes("MURID") && erdState.selectedEntities.includes("BUKU");
+            const hasMuridAttrs = erdState.selectedAttributes.includes("ID_Murid") && erdState.selectedAttributes.includes("Nama") && !erdState.selectedAttributes.includes("Gaji_Guru");
+            const hasCorrectCard = erdState.selectedCardinality === "M : N (Many-to-Many)";
+
+            const feedback = document.getElementById('erdFeedback');
+
+            if (hasMuridBuku && hasMuridAttrs && hasCorrectCard) {
+                gameState.score += 100;
+                gameState.currentMission = 3;
+                const serverDoor = mapObjects.find(o => o.id === 'door_server');
+                if (serverDoor) serverDoor.locked = false;
+
+                updateDashboardUI();
+                closeMission2Modal();
+                alertModal("Misi 2 Selesai!", "Tahniah! Model ERD Perpustakaan Sekolah berjaya dibina secara betul (+100 Mata). Pintu Bilik Pelayan kini terbuka!");
+            } else {
+                feedback.innerText = "❌ ERD belum tepat! Pastikan entiti MURID & BUKU dipilih, atribut tepat, dan kardinality M:N diguna.";
+            }
+        }
+
+        function closeMission2Modal() {
+            document.getElementById('modalMission2').classList.add('hidden');
+        }
+
+        // MISSION 3 LOGIC ENGINE (SP 2.2.3 - SKEMA HUBUNGAN)
+        const schemaState = {
+            t1_pk: null,
+            t2_pk: null,
+            t2_fk: null
+        };
+
+        function openMission3Modal() {
+            if (gameState.currentMission < 3) {
+                alertModal("Akses Ditolak", "Lengkapkan Misi 2 di Makmal Komputer terlebih dahulu!");
+                return;
+            }
+
+            renderSchemaPuzzle();
+            document.getElementById('modalMission3').classList.remove('hidden');
+        }
+
+        function renderSchemaPuzzle() {
+            // Table 1 Attributes
+            const t1Container = document.getElementById('schemaTable1');
+            t1Container.innerHTML = '';
+            ["ID_Murid", "Nama", "Kelas"].forEach(attr => {
+                const isPK = schemaState.t1_pk === attr;
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2 rounded-xl text-xs font-bold transition ${isPK ? 'bg-purple-500 text-white underline font-extrabold ring-2 ring-purple-300' : 'bg-slate-800 text-slate-300 border border-slate-700'}`;
+                btn.innerText = `${attr} ${isPK ? '(PK)' : ''}`;
+                btn.onclick = () => {
+                    schemaState.t1_pk = attr;
+                    renderSchemaPuzzle();
+                };
+                t1Container.appendChild(btn);
+            });
+
+            // Table 2 Attributes
+            const t2Container = document.getElementById('schemaTable2');
+            t2Container.innerHTML = '';
+            ["ID_Pinjam", "Tarikh_Pinjam", "ID_Murid", "Kod_Buku"].forEach(attr => {
+                const isPK = schemaState.t2_pk === attr;
+                const isFK = schemaState.t2_fk === attr;
+
+                const btn = document.createElement('button');
+                btn.className = `px-3 py-2 rounded-xl text-xs font-bold transition ${isPK ? 'bg-purple-500 text-white underline' : isFK ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-300 border border-slate-700'}`;
+                btn.innerText = `${attr} ${isPK ? '(PK)' : isFK ? '(FK)' : ''}`;
+                btn.onclick = () => {
+                    if (!schemaState.t2_pk) {
+                        schemaState.t2_pk = attr;
+                    } else if (!schemaState.t2_fk && attr !== schemaState.t2_pk) {
+                        schemaState.t2_fk = attr;
+                    } else {
+                        schemaState.t2_pk = attr;
+                        schemaState.t2_fk = null;
+                    }
+                    renderSchemaPuzzle();
+                };
+                t2Container.appendChild(btn);
+            });
+        }
+
+        function validateMission3() {
+            const feedback = document.getElementById('schemaFeedback');
+
+            if (schemaState.t1_pk === "ID_Murid" && schemaState.t2_pk === "ID_Pinjam" && schemaState.t2_fk === "ID_Murid") {
+                gameState.score += 150;
+                gameState.currentMission = 4; // Victory State
+                updateDashboardUI();
+                closeMission3Modal();
+
+                // Open Victory Screen
+                document.getElementById('finalScore').innerText = gameState.score;
+                document.getElementById('modalVictory').classList.remove('hidden');
+            } else {
+                feedback.innerText = "❌ Skema Hubungan tidak tepat! Tentukan PK Jadual 1 (ID_Murid), PK Jadual 2 (ID_Pinjam), dan FK (ID_Murid).";
+            }
+        }
+
+        function closeMission3Modal() {
+            document.getElementById('modalMission3').classList.add('hidden');
+        }
+
+        // UI HELPERS & UPDATERS
+        function updateDashboardUI() {
+            document.getElementById('scoreDisplay').innerText = gameState.score;
+            const mText = gameState.currentMission === 4 ? "TAMAT 🎉" : `Misi ${gameState.currentMission}`;
+            document.getElementById('missionDisplay').innerText = mText;
+        }
+
+        function alertModal(title, message) {
+            openDialogueNPC(title, message);
+        }
+
+        function openHintModal() {
+            const hints = [
+                "Misi 1: Kekunci Utama mestilah unik dan tidak boleh kosong (NOT NULL).",
+                "Misi 2: Pilih entiti MURID & BUKU, atribut ID_Murid/Nama, serta Kardinaliti M:N.",
+                "Misi 3: Jadual MURID mengguna ID_Murid sebagai PK, manakala Jadual PINJAMAN mengguna ID_Murid sebagai FK!"
+            ];
+            const currentHint = hints[Math.min(gameState.currentMission - 1, 2)];
+            document.getElementById('hintText').innerText = currentHint;
+            document.getElementById('modalHint').classList.remove('hidden');
+        }
+
+        function closeHintModal() {
+            document.getElementById('modalHint').classList.add('hidden');
+        }
+
+        function startGame() {
+            document.getElementById('modalStart').classList.add('hidden');
+        }
+
+        function restartGame() {
+            location.reload();
+        }
+
+        // START GAME LOOP ON WINDOW LOAD
+        window.onload = function() {
+            resizeCanvas();
+            updateDashboardUI();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
